@@ -143,6 +143,23 @@ class PPFlowMatching(nn.Module):
             'sample_sequence': True,
         }
     ):
+        print("Batch keys:", batch.keys())
+        print("Batch shapes:")
+        for key, value in batch.items():
+            if isinstance(value, torch.Tensor):
+                print(f"  {key}: {value.shape}")
+            elif isinstance(value, dict):
+                print(f"  {key}: (dict)")
+                for sub_key, sub_value in value.items():
+                    if isinstance(sub_value, torch.Tensor):
+                        print(f"    {sub_key}: {sub_value.shape}")
+                    else:
+                        print(f"    {sub_key}: {type(sub_value)}")
+            else:
+                print(f"  {key}: {type(value)}")
+        print("Optimization parameters:")
+        print(f"  interm_t: {interm_t}")
+        print(f"  optimize_opt: {optimize_opt}")
         mask_gen_pos = batch['mask_gen_pos']
         mask_gen_aa = batch['mask_gen_aa']
 
