@@ -1,0 +1,36 @@
+bin/**
+*.pdb
+*.pt
+
+
+# All biology files
+*.fasta
+*.fa
+*.fastq
+
+# All output files or error files
+*.out
+*.err
+*.log
+*.txt
+*.tsv
+
+
+# All data files
+*.csv
+*.tsv
+*.txt
+*.xls
+*.xlsx
+*.json
+*.xml
+*.yaml
+*.yml
+
+
+__pycache__/
+*.pyc
+
+.cursorignore
+dataset/ligands133/.DS_Store
+results-jasper/ppflow/optimize_ppflow_233k2410/0116_2xrw_2024_10_24__17_03_31/metrics_meta.npy
