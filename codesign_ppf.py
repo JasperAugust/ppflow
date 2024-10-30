@@ -22,16 +22,20 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--index', type=int, default=0)
     parser.add_argument('-c', '--config', type=str, default='./configs/test/codesign_ppflow.yml')
-    parser.add_argument('-o', '--out_root', type=str, default='./results/ppflow')
-    parser.add_argument('-t', '--tag', type=str, default='124')
+    parser.add_argument('-o', '--out_root', type=str, default='./results-jasper/ppflow')
+    parser.add_argument('-t', '--tag', type=str, default='233k')
     parser.add_argument('-s', '--seed', type=int, default=None)
-
     parser.add_argument('-d', '--device', type=str, default='cuda')
     parser.add_argument('-b', '--batch_size', type=int, default=64)
+    parser.add_argument('-ckpt', '--checkpoint', type=str, default='./logs/ppflow_2024_08_12__19_43_32/checkpoints/233000.pt')
+
     args = parser.parse_args()
 
     # Load configs
     config, config_name = load_config(args)
+    if args.checkpoint is not None:
+        config.model.checkpoint = args.checkpoint
+        
     tag_postfix = '_%s' % args.tag if args.tag else ''
     seed_all(args.seed if args.seed is not None else config.sampling.seed)
 
