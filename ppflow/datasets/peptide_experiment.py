@@ -17,7 +17,6 @@ def get_pair_dataset(cfg, transform):
                        processed_dir = cfg.processed_dir,
                        include_pdb_path = cfg.get('include_pdb_path', None),
                        exclude_pdb_path = cfg.get('exclude_pdb_path', None),
-                       split = cfg.split,
                        split_seed = cfg.get('split_seed', 2024),
                        transform = transform,
                        benchmark_test = cfg.get('benchmark_test', False))
@@ -26,9 +25,9 @@ class PairDataset(Dataset):
 
     def __init__(
         self, 
-        data_dir = './dataset/ppbench2024/',
-        split_path = './processed/split.pt',
-        processed_dir = './processed',
+        data_dir = './dataset/nanomed/',
+        split_path = './dataset/nanomed/processed/split.pt',
+        processed_dir = './dataset/nanomed/processed',
         include_pdb_path = None,
         exclude_pdb_path = None,
         # split = 'train',
@@ -69,7 +68,6 @@ class PairDataset(Dataset):
             if os.path.exists(self.structure_cache_path):
                 os.unlink(self.structure_cache_path)
             self._preprocess_structures()
-        print('Loading Structures for {} set...'.format(self.split))
         self.structures = torch.load(self.structure_cache_path)
 
     @property
@@ -177,15 +175,13 @@ class PairDataset(Dataset):
         ])
         subprocess.run(cmd, cwd=self.processed_dir, shell=True, check=True)
 
-    def _load_split(self, split, split_seed, reset):
-        assert split in ('train', 'val', 'test')
-        
+    def _load_split(self, split_seed, reset):
         if not os.path.exists(self.split_path) or reset:
             self._create_splits(split_seed)
 
         complex_splits = torch.load(self.split_path)
 
-        complexes_this = complex_splits[split]
+        complexes_this = complex_splits['test']
 
         entries = []
         for cplx in complexes_this:
@@ -202,17 +198,11 @@ class PairDataset(Dataset):
     def _create_splits(self, split_seed):
         complex_list = sorted(self.clusters.keys())
         random.Random(split_seed).shuffle(complex_list)
-        split_sizes = [math.ceil(len(complex_list) * 0.9), 
-                       math.ceil(len(complex_list) * 1.0)]
         
-        if self.benchmark_test:
-            split_sizes = [math.ceil(len(complex_list) * 0.0), 
-                           math.ceil(len(complex_list) * 0.0)]
-            
         complex_splits = {
-            'train': complex_list[0 : split_sizes[0]],
-            'val': complex_list[split_sizes[0] : split_sizes[1]],
-            'test': complex_list[split_sizes[1] : ],
+            'train': [],
+            'val': [],
+            'test': complex_list,
         }
         torch.save(complex_splits, self.split_path)
 

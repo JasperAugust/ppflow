@@ -1,5 +1,5 @@
 model:
-  checkpoint: ./logs/ppflow_dock_2024_01_17__17_28_52_dock/checkpoints/98000.pt
+  checkpoint: ./logs/ppflow_2024_08_12__19_43_32/checkpoints/233000.pt
 
 sampling:
   seed: 2022

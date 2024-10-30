@@ -1,12 +1,11 @@
 model:
-  checkpoint: ./logs/ppflow_2024_01_17__17_28_55/checkpoints/193000.pt
-
+  checkpoint: /gpfs/helios/home/tootsi/homing/ppflow/logs/ppflow_2024_08_12__19_43_32/checkpoints/233000.pt
 sampling:
   seed: 2022
   sample_structure: true
   sample_sequence: true
   num_samples: 20
-  num_steps: 500
+  num_steps: 100
 
 dataset:
   type: pair
@@ -14,6 +13,8 @@ dataset:
   split_path: ./data/processed_bench/split.pt
   processed_dir: ./data/processed_bench
   include_pdb_path: ./data/pdb_benchmark.pt
+  output:
+    output_dir: ./optimized_peptides/
   transform:
     - type: mask_peptide
       mask_type: true
@@ -27,4 +28,3 @@ dataset:
     - type: merge_chains
     - type: center_pos
       center_flag: receptor_flag
-    

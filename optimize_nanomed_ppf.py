@@ -21,9 +21,9 @@ import os
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--index', type=int, default=0)
-    parser.add_argument('-c', '--config', type=str, default='./configs/test/optimize_ppflow.yml')
-    parser.add_argument('-o', '--out_root', type=str, default='./results-jasper/ppflow')
-    parser.add_argument('-t', '--tag', type=str, default='233k2410')
+    parser.add_argument('-c', '--config', type=str, default='./configs/test/optimize_nanomed_ppflow.yml')
+    parser.add_argument('-o', '--out_root', type=str, default='./results-nanomed/ppflow')
+    parser.add_argument('-t', '--tag', type=str, default='233k2810')
     parser.add_argument('-s', '--seed', type=int, default=None)
     parser.add_argument('-d', '--device', type=str, default='cuda')
     parser.add_argument('-b', '--batch_size', type=int, default=64)
@@ -40,7 +40,9 @@ def main():
     seed_all(args.seed if args.seed is not None else config.sampling.seed)
 
     # Testset 
-    dataset = get_dataset(config.dataset, split='test')
+    dataset = get_dataset(config.dataset, 
+                        #   split='test'  # This is not a valid argument for get_dataset when running the experiment config
+                          )
 
     dr = os.path.join(args.out_root, config_name + tag_postfix)
 

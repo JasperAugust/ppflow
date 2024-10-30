@@ -131,7 +131,7 @@ def parse_biopython_structure(pdb_path, unknown_threshold=1.0):
                 if not AA.is_aa(resname): 
                     if res_id == 0 or res_id == len(residues) - 1:
                         continue 
-                    logging.warning(f"Unknown AA type in {res_id}-th residue from PDB: {pdb_path}. Skip the pair.")
+                    logging.warning(f"Unknown AA type {resname} in {res_id}-th residue from PDB: {pdb_path}. Skip the pair.")
                     return None
                 if not (res.has_id('CA') and res.has_id('C') and res.has_id('N')): 
                     logging.warning(f"Incomplete backbone atom in {res_id}-th residue from PDB: {pdb_path}. Skip the pair")
@@ -224,17 +224,26 @@ def parse_biopython_structure(pdb_path, unknown_threshold=1.0):
 
 
 if __name__ == '__main__':
-    protein_names = os.listdir('./dataset/ppbench2024/')
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Parse receptor-peptide pairs")
+    parser.add_argument('--input_dir', type=str, required=True, help='Path to the dataset directory')
+    parser.add_argument('--output_file', type=str, required=True, help='Path to save the parsed data')
+    args = parser.parse_args()
+
+    protein_names = os.listdir(args.input_dir)
     tasks = []
     for protein_name in protein_names:
-        task = {'receptor_path': './dataset/ppbench2024/{}/receptor.pdb'.format(protein_name), 
-                'peptide_path': './dataset/ppbench2024/{}/peptide.pdb'.format(protein_name),
-                'pdb_name': protein_name}
+        task = {
+            'receptor_path': os.path.join(args.input_dir, protein_name, 'receptor.pdb'),
+            'peptide_path': os.path.join(args.input_dir, protein_name, 'peptide.pdb'),
+            'pdb_name': protein_name
+        }
         tasks.append(task)
 
     data_list = []
 
-    for task in tqdm(tasks):
+    for task in tqdm(tasks, desc="Parsing Structures"):
         paired_data = {}
         data_receptor = parse_biopython_structure(task['receptor_path'])
         data_peptide = parse_biopython_structure(task['peptide_path'])
@@ -248,4 +257,4 @@ if __name__ == '__main__':
         data = filter_none(data)
         if data is not None:
             data_list_filter.append(data)
-    torch.save(data_list_filter, './processed/parsed_pair.pt')
+    torch.save(data_list_filter, args.output_file)
