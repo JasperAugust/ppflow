@@ -1,0 +1,18 @@
+#!/bin/bash
+#SBATCH --job-name=eval_all
+#SBATCH --output=eval_all_%j.out
+#SBATCH --error=eval_all_%j.err
+#SBATCH --time=24:00:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=64
+#SBATCH --mem=64G
+
+
+conda activate ppflow
+python eval_all.py \
+    --meta_gen_dir ../results-nanomed/ppflow/optimize_nanomed_ppflow_233k2710 \
+    --mode basic_prop \
+    --parallel \
+    --block 64
+
+
