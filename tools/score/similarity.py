@@ -9,7 +9,7 @@ from Bio.PDB import PDBIO, PDBParser
 parser = PDBParser(QUIET=True)
 
 FILE_DIR = os.path.split(__file__)[0]
-TMEXEC = os.path.abspath('./bin/TMscore/TMscore')
+TMEXEC = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'bin', 'TMscore', 'TMscore')
 
 def load_pep_seq(pdb_path):
     structure_ligand = parser.get_structure(pdb_path, pdb_path)[0]
@@ -49,7 +49,42 @@ def check_novelty(pdb_path1, pdb_path2, tm_threshold=0.5, seq_threshold=0.5):
 
 
 if __name__ == '__main__':
-    pdb_path1 = '/linhaitao/peptidesign/results/diffpp/dock_diffpp/0000_2qbx_2024_01_16__15_35_53/0001.pdb'
-    pdb_path2 = '/linhaitao/peptidesign/PPDbench/2qbx/peptide.pdb'
-    tm = tm_score(pdb_path1, pdb_path2)
-    seq_smi = seq_similarity(pdb_path1, pdb_path2)
+    # TODO note(Jasper): Replace this with a specific file!
+    import os
+    import pandas as pd
+    codesign_ppflow_dir = '/gpfs/helios/home/tootsi/homing/ppflow/results/ppflow/codesign_ppflow'
+    
+    for folder in os.listdir(codesign_ppflow_dir):
+        base_dir = os.path.join(codesign_ppflow_dir, folder)
+        if not os.path.isdir(base_dir):
+            continue
+        
+        pdb_id = folder.split('_')[1]
+        pdb_path2 = f'/gpfs/helios/home/tootsi/homing/ppflow/dataset/PPDbench/{pdb_id}/peptide.pdb'
+        
+        results = []
+        
+        for filename in os.listdir(base_dir):
+            if filename.endswith('.pdb'):
+                pdb_path1 = os.path.join(base_dir, filename)
+                tm = tm_score(pdb_path1, pdb_path2)
+                seq_sim = seq_similarity(pdb_path1, pdb_path2)
+                novelty = check_novelty(pdb_path1, pdb_path2)
+                
+                results.append({
+                    'Filename': filename,
+                    'TM Score': tm,
+                    'Sequence Similarity': seq_sim,
+                    'Novelty': novelty
+                })
+        
+        df = pd.DataFrame(results)
+        
+        # Save to file
+        output_file = os.path.join(base_dir, 'similarity_results.csv')
+        df.to_csv(output_file, index=False)
+        
+        # Print to console
+        print(f"\nResults for {folder}:")
+        print(df.to_string(index=False))
+        print(f"Results saved to: {output_file}")

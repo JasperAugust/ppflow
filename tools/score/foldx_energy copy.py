@@ -8,7 +8,7 @@ class FoldXGibbsEnergy():
 
     def __init__(
         self,
-        foldx_path = '../bin/FoldX/foldx'
+        foldx_path = './bin/FoldX/foldx_20241231'
     ):
         super().__init__()
         self.foldx_path = os.path.abspath(foldx_path)
@@ -62,7 +62,10 @@ class FoldXGibbsEnergy():
 
         os.system(cmd)
 
-        return self.read_output(os.path.join(self.tmpdir.name, 'merge_0_ST.fxout'))
+        output_file = os.path.join(self.tmpdir.name, 'merge_0_ST.fxout')
+        if not os.path.exists(output_file):
+            raise FileNotFoundError(f"FoldX output file not found: {output_file}")
+        return self.read_output(output_file)
 
     def read_output(self, file_name):
         with open(file_name, 'r') as f:
@@ -71,13 +74,48 @@ class FoldXGibbsEnergy():
         return total_energy
 
 
-if __name__ == '__main__':
-    gen_bb_file = './PPDbench/2qbx/peptide.pdb'
-    protein_file = './PPDbench/2qbx/receptor.pdb'
 
-    score_calculator = FoldXGibbsEnergy()
-    score_calculator.set_ligand(gen_bb_file)
-    score_calculator.set_receptor(protein_file)
-    score_calculator.side_chain_packing('ligand')
-    dg = score_calculator.cal_interface_energy()
+# Jasper 
+# if __name__ == '__main__':
+#     import os
+#     import pandas as pd
+    
+#     codesign_ppflow_dir = '/gpfs/helios/home/tootsi/homing/ppflow/results/ppflow/codesign_ppflow'
+    
+#     for folder in os.listdir(codesign_ppflow_dir):
+#         base_dir = os.path.join(codesign_ppflow_dir, folder)
+#         if not os.path.isdir(base_dir):
+#             continue
+        
+#         pdb_id = folder.split('_')[1]
+#         protein_file = f'/gpfs/helios/home/tootsi/homing/ppflow/dataset/PPDbench/{pdb_id}/receptor.pdb'
+        
+#         results = []
+        
+#         for filename in os.listdir(base_dir):
+#             if filename.endswith('.pdb'):
+#                 gen_bb_file = os.path.join(base_dir, filename)
+                
+#                 score_calculator = FoldXGibbsEnergy()
+#                 score_calculator.set_ligand(gen_bb_file)
+#                 score_calculator.set_receptor(protein_file)
+#                 score_calculator.side_chain_packing('ligand')
+#                 dg = score_calculator.cal_interface_energy()
+                
+#                 results.append({
+#                     'Filename': filename,
+#                     'FoldX Energy': dg
+#                 })
+        
+#         df = pd.DataFrame(results)
+        
+#         # Save to file
+#         output_file = os.path.join(base_dir, 'foldx_energy_results.csv')
+#         df.to_csv(output_file, index=False)
+        
+#         # Print to console
+#         print(f"\nResults for {folder}:")
+#         print(df.to_string(index=False))
+#         print(f"Results saved to: {output_file}")
+
 

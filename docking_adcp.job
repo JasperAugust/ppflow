@@ -1,0 +1,11 @@
+#!/bin/bash
+#SBATCH --job-name="ADCP docking"
+#SBATCH --partition=gpu
+#SBATCH --time=3-01:00:00
+#SBATCH --gres=gpu:1        
+#SBATCH --cpus-per-task=96  
+#SBATCH --mem=64G
+
+
+conda activate ppflow
+srun python tools/dock/adcpdock.py

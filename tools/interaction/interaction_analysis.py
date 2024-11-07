@@ -1,6 +1,7 @@
 import shutil
 import pickle
 import xml.etree.ElementTree as ET
+import argparse
 #from plip.structure.preparation import PDBComplex
 from rdkit import Chem
 from rdkit.Chem import AllChem
@@ -18,14 +19,19 @@ from rdkit import Chem
 from rdkit.Chem.rdchem import BondType
 from rdkit.Chem import ChemicalFeatures
 from rdkit import RDConfig
-from ..base import merge_protein_ligand
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from base import merge_protein_ligand
+from ppflow.utils.misc import get_logger
+
 
 ATOM_FAMILIES = ['Acceptor', 'Donor', 'Aromatic', 'Hydrophobe', 'LumpedHydrophobe', 'NegIonizable', 'PosIonizable', 'ZnBinder']
 ATOM_FAMILIES_ID = {s: i for i, s in enumerate(ATOM_FAMILIES)}
 BOND_TYPES = {t: i for i, t in enumerate(BondType.names.values())}
 BOND_NAMES = {i: t for i, t in enumerate(BondType.names.keys())}
 import tempfile
-TMPDIR = tempfile.TemporaryDirectory().name
+TMPDIR = tempfile.mkdtemp()
+os.makedirs(TMPDIR, exist_ok=True)
+
 
 class PDBProtein(object):
 
@@ -350,7 +356,7 @@ def plip_parser(xml_file):
         result['num_metal'] = len(interaction_ele.findall('metal_complexes/*'))
     return result
 
-def patter_analysis(ori_report, gen_report):
+def pattern_analysis(ori_report, gen_report):
     compare = {}
     num_ori = 0
     num_gen = 0
@@ -460,25 +466,28 @@ def interact_analysis(results_pkl, pkt_file, sdf_file, k=10):
 
 
 if __name__ == '__main__':
-if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--gen_dir', type=str, default='./dataset/ppbench2024')
-    parser.add_argument('--ref_dir', type=str, default='./dataset/ppbench2024')
-    parser.add_argument('--save_path', type=str, default='./results/ppbench2024')
+    parser.add_argument('--gen_dir', type=str, default='./dataset/PPDbench')
+    parser.add_argument('--ref_dir', type=str, default='./dataset/PPDbench')
+    parser.add_argument('--save_path', type=str, default='./results-jasper/plip/PPDbench')
     args = parser.parse_args()
-
-    logger = get_logger('PLIP_ANALYSIS', args.save_path)
+    save_path = args.save_path
+    
+    logger = get_logger('PLIP_ANALYSIS', save_path)
     reports = {'num_hydrophobic': 0, 'num_hydrogen': 0, 'num_wb': 0, 'num_pi_stack': 0, 'num_pi_cation': 0, 'num_halogen': 0, 'num_metal': 0}
     interaction_detected = 0
 
-    for ref_name in ref_dir:
-        protein_file = os.path.join('./dataset/ppbench2024', ref_name, 'receptor.pdb')
-        ligand_file = os.path.join('./dataset/ppbench2024', ref_name, 'peptide.pdb')
+    print(f'Start interaction analysis {args.ref_dir}')
+
+    ref_dirs = [d for d in os.listdir(args.ref_dir) if os.path.isdir(os.path.join(args.ref_dir, d))]
+    for ref_name in ref_dirs:
+        protein_file = os.path.join('./dataset/PPDbench', ref_name, 'receptor.pdb')
+        ligand_file = os.path.join('./dataset/PPDbench', ref_name, 'peptide.pdb')
 
         merged_pdb_file = osp.join(TMPDIR, 'merged.pdb')
         merge_protein_ligand(protein_file, ligand_file, merged_pdb_file)
 
-        report = plip_parser(plip_analysis(merged_pdb_file, 'interaction'))
+        report = plip_parser(plip_analysis(merged_pdb_file, save_path))
         if report is not None:
             print(report)
             for k, v in report.items():

@@ -17,9 +17,9 @@ def _check_validity(bond_dict):
     nca = torch.tensor(bond_dict['nca'])
     cac = torch.tensor(bond_dict['cac'])
     cn = torch.tensor(bond_dict['cn'])
-    nca_wrong = torch.logical_and(nca > N_CA_LENGTH + 0.5, nca < N_CA_LENGTH - 0.5).sum()
-    cac_wrong = torch.logical_and(cac > CA_C_LENGTH + 0.5, cac < CA_C_LENGTH - 0.5).sum()
-    cn_wrong = torch.logical_and(cn > C_N_LENGTH + 0.5, cn < C_N_LENGTH - 0.5).sum()
+    nca_wrong = torch.logical_or(nca > N_CA_LENGTH + 0.5, nca < N_CA_LENGTH - 0.5).sum()
+    cac_wrong = torch.logical_or(cac > CA_C_LENGTH + 0.5, cac < CA_C_LENGTH - 0.5).sum()
+    cn_wrong = torch.logical_or(cn > C_N_LENGTH + 0.5, cn < C_N_LENGTH - 0.5).sum()
     if nca_wrong + cac_wrong + cn_wrong > 0:
         return False
     else:
@@ -73,6 +73,22 @@ def bond_length_validation(pdb_file):
     return _check_validity(bond_dict)
 
 if __name__ == '__main__':
-    pdb_file = '/linhaitao/peptidesign/results/diffpp/dock_diffpp/0000_2qbx_2024_01_16__15_35_53/0000.pdb'
+    # TODO note(Jasper): Replace this with a specific file!
+    # pdb_file = '/linhaitao/peptidesign/results/diffpp/dock_diffpp/0000_2qbx_2024_01_16__15_35_53/0000.pdb'
+    
+    # Go through all of the files in the directory and check if they are valid, if not mark them as invalid
+    
+    import osdd
+    import glob
 
-    if_valid = bond_length_validation(pdb_file)
+    results_dir = '/gpfs/helios/home/tootsi/homing/ppflow/results/ppflow/codesign_ppflow'
+    for pdb_file in glob.glob(os.path.join(results_dir, '*', '*.pdb')):
+        if_valid = bond_length_validation(pdb_file)
+        if not if_valid:
+            invalid_file = pdb_file.replace('.pdb', '_invalid.pdb')
+            os.rename(pdb_file, invalid_file)
+            print(f"Marked as invalid: {invalid_file}")
+        else:
+            print(f"Valid: {pdb_file}")
+    
+    print(if_valid)

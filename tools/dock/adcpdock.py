@@ -11,6 +11,7 @@ from tools.relax.rosetta_packing import side_chain_packing
 from Bio.PDB import PDBParser, PDBIO
 from tqdm import tqdm
 import numpy as np
+import pandas as pd
 
 
 parser = PDBParser(QUIET=True)
@@ -57,6 +58,75 @@ def fix_docked_pdb(pdb_path):
         f.write(''.join(fixed))
 
 
+def extract_energy_info(save_dir, output_file='energy_summary.txt'):
+    energy_file = os.path.join(save_dir, "energy_record.txt")
+    if not os.path.exists(energy_file):
+        print("Energy record file not found.")
+        return
+
+    metadata = []
+    energy_data = []
+    table_started = False
+    headers = []
+
+    with open(energy_file, 'r') as f:
+        for line in f:
+            if line.startswith("mode |"):
+                table_started = True
+                headers = line.strip().split()
+                continue
+            if table_started:
+                if line.strip() and not line.startswith("-----+"):
+                    energy_data.append(line.split())
+            elif line.strip():
+                metadata.append(line.strip())
+
+    # Create a DataFrame from the energy data
+    df = pd.DataFrame(energy_data)
+
+    # Assign headers to the DataFrame
+    if len(headers) < len(df.columns):
+        df.columns = headers + [f'Unnamed_{i}' for i in range(len(df.columns) - len(headers))]
+    else:
+        df.columns = headers[:len(df.columns)]
+
+    # Convert numeric columns to float
+    numeric_columns = ['mode', 'affinity', 'clust.', 'ref.', 'rmsd', 'energy', 'best']
+    for col in df.columns:
+        if any(nc in col for nc in numeric_columns):
+            try:
+                df[col] = df[col].apply(lambda x: pd.to_numeric(x, errors='coerce'))
+            except Exception as e:
+                print(f"Error converting column {col} to numeric: {e}")
+                print(f"Column contents: {df[col].tolist()[:5]}...")  # Print first 5 elements for debugging
+
+    # Sort by affinity (assuming lower is better)
+    df = df.sort_values('affinity')
+
+    # Calculate summary statistics for numerical columns
+    summary = df.select_dtypes(include=[np.number]).describe()
+
+    # Write metadata, table, and summary to the output file
+    with open(os.path.join(save_dir, output_file), 'w') as f:
+        # Write metadata
+        f.write("Metadata:\n")
+        for line in metadata:
+            f.write(f"{line}\n")
+        f.write("\n")
+
+        # Write energy table
+        f.write("Energy Table:\n")
+        f.write(df.to_string(index=False))
+        f.write("\n\n")
+
+        # Write summary statistics
+        f.write("Summary Statistics:\n")
+        f.write(summary.to_string())
+
+    print(f"Energy information saved to {os.path.join(save_dir, output_file)}")
+
+
+
 
 
 class ADCPDock(DockingEngine):
@@ -64,15 +134,34 @@ class ADCPDock(DockingEngine):
     def __init__(
             self,
             save_dir,
-            reduce_bin = './bin/bin/reduce',
-            adcp_bin = './bin/bin/adcp',
-            prepare_ligand_bin = './bin/bin/prepare_ligand',
-            prepare_receptor_bin = './bin/bin/prepare_receptor',
-            agfr_bin = './bin/bin/agfr'
+            reduce_bin = None,
+            adcp_bin = None,
+            prepare_ligand_bin = None,
+            prepare_receptor_bin = None,
+            agfr_bin = None
         ):
         super().__init__()
+        
+        # Get the current working directory
+        current_dir = os.getcwd()
+        
+        # Set default paths relative to the current directory if not provided
+        if reduce_bin is None:
+            reduce_bin = os.path.join(current_dir, 'bin', 'ADFRsuite_x86_64Linux_1.0', 'bin', 'reduce')
+        reduce_het_dict = os.path.join(current_dir, 'bin/ADFRsuite_x86_64Linux_1.0/bin/reduce_wwPDB_het_dict.txt')
+        if adcp_bin is None:
+            adcp_bin = os.path.join(current_dir, 'bin', 'ADFRsuite_x86_64Linux_1.0', 'bin', 'adcp')
+        if prepare_ligand_bin is None:
+            prepare_ligand_bin = os.path.join(current_dir, 'bin', 'ADFRsuite_x86_64Linux_1.0', 'bin', 'prepare_ligand')
+        if prepare_receptor_bin is None:
+            prepare_receptor_bin = os.path.join(current_dir, 'bin', 'ADFRsuite_x86_64Linux_1.0', 'bin', 'prepare_receptor')
+        if agfr_bin is None:
+            agfr_bin = os.path.join(current_dir, 'bin', 'ADFRsuite_x86_64Linux_1.0', 'bin', 'agfr')
+
+        # Use os.path.realpath to resolve any symbolic links
         self.adcp_bin = os.path.realpath(adcp_bin)
         self.reduce_bin = os.path.realpath(reduce_bin)
+        self.reduce_het_dict = os.path.realpath(reduce_het_dict)
         self.prepare_ligand_bin = os.path.realpath(prepare_ligand_bin)
         self.prepare_receptor_bin = os.path.realpath(prepare_receptor_bin)
         self.agfr_bin = os.path.realpath(agfr_bin)
@@ -129,7 +218,7 @@ class ADCPDock(DockingEngine):
                         os.path.join(self.save_dir, "{}_{}.pdb".format(save_name, n_save)))
         
         shutil.copyfile(os.path.join(self.tmpdir.name, "terminal_record.txt"),
-                        os.path.join(self.save_dir, "energy_record.txt"))
+                        os.path.join(self.save_dir, f"{save_name}_energy_record.txt"))
         
         energies = []
         
@@ -200,20 +289,70 @@ class ADCPDock(DockingEngine):
 
         hydrogen_pdb.save(ligand_h_path, select=None)
 
-    def auto_dock_box(self, lig_struc):
+    def auto_dock_box1(self, lig_struc):
         docking_center = lig_struc.mean(0)
-        box_size = np.abs(lig_struc - docking_center[None,:]).max(0) * 1.5
+        box_size = np.abs(lig_struc - docking_center[None,:]).max(0) * 2.0  # Increased multiplier
+        padding = 10.0  # Add some padding
+        box_size += padding
+        return docking_center, box_size
+    
+    
+    def auto_dock_box(self, receptor_structure, target_chain, target_residues):
+        # Parse the receptor structure
+        parser = PDB.PDBParser(QUIET=True)
+        structure = parser.get_structure("receptor", receptor_structure)
+
+        
+        # Extract coordinates of target residues
+        target_coords = []
+        found_residues = set()
+        chain = structure[0][target_chain]  # Get first model, specified chain
+
+        for residue in chain:
+                if residue.id[1] in target_residues:
+                    found_residues.add(residue.id[1])
+                    for atom in residue:
+                        if atom.name == 'CA':  # Use alpha carbon as reference
+                            target_coords.append(atom.coord)
+            
+        if not target_coords:
+            print(f"Warning: No target residues found in chain {target_chain}! Falling back to ligand-based box")
+            lig_seq, lig_struc = self.load_pep_seq_and_struc()
+            return self.auto_dock_box1(lig_struc)
+        
+        print(f"Found residues in chain {target_chain}: {found_residues}")
+        
+        target_coords = np.array(target_coords)
+        docking_center = np.mean(target_coords, axis=0)
+        box_size = np.max(np.abs(target_coords - docking_center), axis=0) * 1.0
+        padding = 10.0
+        box_size += padding
+        
+        print(f"Docking box center: {docking_center}")
+        print(f"Docking box size: {box_size}")
+        
         return docking_center, box_size
 
-    def dock(self, save_name, n_save, n_search=20, n_steps=100000, auto_box=False):
+    def dock(self, save_name, n_save, n_search=50, n_steps=100000, auto_box=False):
 
         if not (self._has_receptor and self._has_ligand):
 
             raise ValueError('Missing receptor or peptide.')
 
+        lig_seq, lig_struc = self.load_pep_seq_and_struc()
+        
         if auto_box:
-            lig_seq, lig_struc = self.load_pep_seq_and_struc()
-            docking_center, box_size = self.auto_dock_box(lig_struc)
+            # Specify which chain and residues to use
+            target_chain = 'X'  # Change this to your desired chain
+            target_residues = [297, 320, 308]  # Your target residues
+            
+            try:
+                docking_center, box_size = self.auto_dock_box(self._receptor_path, target_chain, target_residues)
+            except Exception as e:
+                print(f"Error in auto_dock_box: {e}")
+                print("Falling back to ligand-based box")
+                docking_center, box_size = self.auto_dock_box1(lig_struc)
+
 
         receptor_h_path = self._receptor_path.split('/')[-1].split('.')[0] + 'H.pdb'
         receptor_h_path = os.path.join(self.tmpdir.name, receptor_h_path)
@@ -264,6 +403,16 @@ class ADCPDock(DockingEngine):
         cmdline = cmdline_cd + ' && ' + ' '.join(agfr_list)
         os.system(cmdline)
 
+        # Check if directory is empty
+        if not os.listdir(self.tmpdir.name):
+            print(f"Temporary directory {self.tmpdir.name} is empty - skipping docking")
+            return None
+            
+        # Check for prepared file
+        prepared_files = [name for name in os.listdir(self.tmpdir.name) if name[:8] == 'prepared' and name.endswith('.trg')]
+        if not prepared_files:
+            print(f"No prepared .trg file found in {self.tmpdir.name} - skipping docking") 
+            return None
         prepared_file = [name for name in os.listdir(self.tmpdir.name) if name[:8] == 'prepared' and name.endswith('.trg')][0]
         adcp_list = [self.adcp_bin, 
                      '-t', prepared_file,
@@ -280,11 +429,43 @@ class ADCPDock(DockingEngine):
 
         return self._dump_complex_pdb(save_name, n_save) # click 进去
     
+def print_residue_numbers(pdb_file):
+    parser = PDB.PDBParser(QUIET=True)
+    structure = parser.get_structure("receptor", pdb_file)
+    
+    for model in structure:
+        for chain in model:
+            print(f"Chain {chain.id} residues:")
+            residue_nums = [res.id[1] for res in chain]
+            print(residue_nums)
+
+    
+    
 if __name__ == '__main__':
-    protein_file = './PPDbench/2qbx/receptor.pdb'
-    ligand_file = './scripts/examples/0000_bb3.pdb'
-    dock = ADCPDock(save_dir='./scripts/examples/')
-    dock.set_ligand(ligand_file)
-    dock.set_receptor(protein_file) 
-    dock.side_chain_packing('ligand')
-    np.sum(dock.dock(save_name='peptide_docked.pdb', n_save=1, auto_box=True))
+    current_dir = os.getcwd()
+   
+    # optimize_nanomed_ppflow_233k2810/0002_7jjc_2024_10_28__13_31_13/
+    protein_name = '7jjc'
+    optimized_dir = 'optimize_ppflow_233k2810'
+    optimized_peptides = [f'{i:04d}' for i in range(20, 50)]
+    # optimized_peptides = ['reference']
+    
+    protein_file = os.path.join(current_dir, 'dataset', 'nanomed', protein_name, 'receptor.pdb')
+    
+    save_dir = os.path.join(current_dir, 'results-nanomed','docking', optimized_dir, protein_name)
+    os.makedirs(save_dir, exist_ok=True)
+    
+        
+    # Use it before docking
+    # print_residue_numbers(protein_file)
+    
+    for optimized_peptide in optimized_peptides:
+        ligand_file = os.path.join(current_dir, 'results-nanomed', 'ppflow', 'optimize_nanomed_ppflow_233k2810/0002_7jjc_2024_10_28__13_31_13/', f'{optimized_peptide}.pdb')
+        
+        
+        dock = ADCPDock(save_dir=save_dir)
+        dock.set_ligand(ligand_file)
+        dock.set_receptor(protein_file) 
+        dock.side_chain_packing('ligand')
+        np.sum(dock.dock(save_name=f'{protein_name}_{optimized_peptide}_docked_from_{optimized_dir}', n_save=1, auto_box=True))
+        
