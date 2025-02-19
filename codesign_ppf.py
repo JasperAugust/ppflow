@@ -22,7 +22,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--index', type=int, default=0)
     parser.add_argument('-c', '--config', type=str, default='./configs/test/codesign_ppflow.yml')
-    parser.add_argument('-o', '--out_root', type=str, default='./results-jasper/ppflow')
+    parser.add_argument('-o', '--out_root', type=str, default='./results-nanomed/ppflow')
     parser.add_argument('-t', '--tag', type=str, default='233k')
     parser.add_argument('-s', '--seed', type=int, default=None)
     parser.add_argument('-d', '--device', type=str, default='cuda')

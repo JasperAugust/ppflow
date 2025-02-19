@@ -324,8 +324,8 @@ class ADCPDock(DockingEngine):
         
         target_coords = np.array(target_coords)
         docking_center = np.mean(target_coords, axis=0)
-        box_size = np.max(np.abs(target_coords - docking_center), axis=0) * 1.0
-        padding = 10.0
+        box_size = np.max(np.abs(target_coords - docking_center), axis=0) * 1.5
+        padding = 20.0
         box_size += padding
         
         print(f"Docking box center: {docking_center}")
@@ -333,7 +333,7 @@ class ADCPDock(DockingEngine):
         
         return docking_center, box_size
 
-    def dock(self, save_name, n_save, n_search=50, n_steps=100000, auto_box=False):
+    def dock(self, save_name, n_save, n_search=20, n_steps=1000000, auto_box=False):
 
         if not (self._has_receptor and self._has_ligand):
 
@@ -343,8 +343,9 @@ class ADCPDock(DockingEngine):
         
         if auto_box:
             # Specify which chain and residues to use
-            target_chain = 'X'  # Change this to your desired chain
-            target_residues = [297, 320, 308]  # Your target residues
+            
+            target_chain = 'C'  # Change this to your desired chain
+            target_residues = [59, 98, 112]  # Your target residues
             
             try:
                 docking_center, box_size = self.auto_dock_box(self._receptor_path, target_chain, target_residues)
@@ -439,16 +440,79 @@ def print_residue_numbers(pdb_file):
             residue_nums = [res.id[1] for res in chain]
             print(residue_nums)
 
+
+def analyze_hydrogen_bonds(pdb_file, target_residues=[59, 98, 112], max_distance=3.5):
+    """Analyze hydrogen bonds between peptide and specific protein residues."""
+    parser = PDB.PDBParser(QUIET=True)
+    structure = parser.get_structure('complex', pdb_file)
     
+    donors = {'N', 'NE', 'NH1', 'NH2', 'ND1', 'NE2', 'NZ', 'OG', 'OG1', 'OH'}
+    acceptors = {'O', 'OD1', 'OD2', 'OE1', 'OE2', 'OH'}
+    
+    h_bonds = []
+    
+    peptide_chain = structure[0]['X']
+    protein_chain = structure[0]['C']  # Adjust chain ID if needed
+    
+    # Filter protein atoms to only include target residues
+    protein_atoms = [atom for residue in protein_chain 
+                    if residue.id[1] in target_residues 
+                    for atom in residue]
+    peptide_atoms = [atom for residue in peptide_chain for atom in residue]
+    
+    # Check both directions with target residues
+    for donor_chain, acceptor_chain, chain_type in [(peptide_atoms, protein_atoms, 'peptide->protein'), 
+                                                   (protein_atoms, peptide_atoms, 'protein->peptide')]:
+        for donor in donor_chain:
+            if donor.name in donors:
+                for acceptor in acceptor_chain:
+                    if acceptor.name in acceptors:
+                        distance = donor - acceptor
+                        if distance <= max_distance:
+                            donor_res = donor.get_parent()
+                            acceptor_res = acceptor.get_parent()
+                            
+                            h_bonds.append({
+                                'type': chain_type,
+                                'donor_chain': donor_res.get_parent().id,
+                                'donor_residue': f"{donor_res.resname}{donor_res.id[1]}",
+                                'donor_atom': donor.name,
+                                'acceptor_chain': acceptor_res.get_parent().id,
+                                'acceptor_residue': f"{acceptor_res.resname}{acceptor_res.id[1]}",
+                                'acceptor_atom': acceptor.name,
+                                'distance': round(distance, 2)
+                            })
+    
+    return h_bonds
+
+def print_hbond_analysis(pdb_file, target_residues=[59, 98, 112]):
+    h_bonds = analyze_hydrogen_bonds(pdb_file, target_residues)
+    
+    # Create output string
+    output = [f"\nAnalyzing H-bonds for {os.path.basename(pdb_file)} with residues {target_residues}"]
+    output.append(f"Found {len(h_bonds)} potential hydrogen bonds:")
+    for bond in h_bonds:
+        output.append(f"{bond['type']}: {bond['donor_residue']}:{bond['donor_atom']} -> "
+                     f"{bond['acceptor_residue']}:{bond['acceptor_atom']} ({bond['distance']}Å)")
+    
+    # Save to HBOND file in the same directory as the PDB
+    hbond_file = os.path.join(os.path.dirname(pdb_file), "HBOND.txt")
+    with open(hbond_file, 'a') as f:
+        f.write('\n'.join(output) + '\n\n')
+    
+    # Also print to console
+    print('\n'.join(output))
     
 if __name__ == '__main__':
     current_dir = os.getcwd()
    
     # optimize_nanomed_ppflow_233k2810/0002_7jjc_2024_10_28__13_31_13/
-    protein_name = '7jjc'
-    optimized_dir = 'optimize_ppflow_233k2810'
-    optimized_peptides = [f'{i:04d}' for i in range(20, 50)]
+    protein_name = '1p32'
+    optimized_dir = 'codesign_ppflow_233k250218-1M'
+    # optimized_peptides = ['0027', '0021', '0033', '0016', '0043', '0020', '0018']
+    # optimized_peptides = ['0007', '0045','0046','reference']
     # optimized_peptides = ['reference']
+    optimized_peptides = [f'{i:04d}' for i in range(100)] + ['reference']
     
     protein_file = os.path.join(current_dir, 'dataset', 'nanomed', protein_name, 'receptor.pdb')
     
@@ -458,9 +522,14 @@ if __name__ == '__main__':
         
     # Use it before docking
     # print_residue_numbers(protein_file)
-    
+    # optimized_peptides = []
+    # for peptide in [f'{i:04d}' for i in range(00, 20)]:
+    #     bb3_file = os.path.join(current_dir, 'results-nanomed', 'ppflow', 'codesign_nanomed_ppflow_233k/0000_1kex_2024_11_07__11_50_19/', f'{peptide}_bb3.pdb')
+    #     if os.path.exists(bb3_file):
+    #         optimized_peptides.append(peptide)
+            
     for optimized_peptide in optimized_peptides:
-        ligand_file = os.path.join(current_dir, 'results-nanomed', 'ppflow', 'optimize_nanomed_ppflow_233k2810/0002_7jjc_2024_10_28__13_31_13/', f'{optimized_peptide}.pdb')
+        ligand_file = os.path.join(current_dir, 'results-nanomed', 'ppflow', 'codesign_nanomed_ppflow_233k20250217/0002_1p32_2025_02_17__12_07_21', f'{optimized_peptide}.pdb')
         
         
         dock = ADCPDock(save_dir=save_dir)
@@ -468,4 +537,8 @@ if __name__ == '__main__':
         dock.set_receptor(protein_file) 
         dock.side_chain_packing('ligand')
         np.sum(dock.dock(save_name=f'{protein_name}_{optimized_peptide}_docked_from_{optimized_dir}', n_save=1, auto_box=True))
+        
+            # Add H-bond analysis
+        # docked_pdb = os.path.join(save_dir, f"{protein_name}_{optimized_peptide}_docked_from_{optimized_dir}_1.pdb")
+        # print_hbond_analysis(docked_pdb, target_residues=[353, 346, 349])
         

@@ -1,7 +1,7 @@
+import torch
 import os
 import shutil
 import argparse
-import torch
 from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
@@ -14,12 +14,13 @@ from ppflow.datasets import get_dataset
 from ppflow.models import get_model
 
 if __name__ == '__main__':
+    # torch.multiprocessing.set_start_method('spawn', force=True)
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str, default='./configs/train/ppflow.yml')
     parser.add_argument('--logdir', type=str, default='./logs')
     parser.add_argument('--debug', action='store_true', default=False)
     parser.add_argument('--device', type=str, default='cuda')
-    parser.add_argument('--num_workers', type=int, default=4)
+    parser.add_argument('--num_workers', type=int, default=8)
     parser.add_argument('--tag', type=str, default='')
     parser.add_argument('--resume', type=str, default=None)
     parser.add_argument('--finetune', type=str, default=None)
@@ -58,17 +59,21 @@ if __name__ == '__main__':
         batch_size=config.train.batch_size, 
         collate_fn=PaddingCollate(), 
         shuffle=True,
-        num_workers=args.num_workers
+        generator=torch.Generator(device=args.device),
+        num_workers=0
     ))
     val_loader = DataLoader(val_dataset, 
                             batch_size=config.train.batch_size, 
                             collate_fn=PaddingCollate(), 
                             shuffle=False, 
-                            num_workers=args.num_workers)
+                            generator=torch.Generator(device=args.device),
+                            num_workers=0)
     logger.info('Train %d | Val %d' % (len(train_dataset), len(val_dataset)))
 
     # Model
     logger.info('Building model...')
+    # Device
+    print(f"Device>>> {args.device}")
     model = get_model(config.model).to(args.device)
     logger.info('Number of parameters: %d' % count_parameters(model))
 

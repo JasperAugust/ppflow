@@ -164,7 +164,6 @@ def main():
 
         logger.info('Finished.\n')
         """
-        # Add Optimization Loop
         # Start optimization
         collate_fn = PaddingCollate(eight=False)
         data_list_repeat = [ structure_ ] * config.sampling.num_samples

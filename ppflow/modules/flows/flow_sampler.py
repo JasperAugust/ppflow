@@ -12,8 +12,8 @@ from ..common.layers import clampped_one_hot
 
 from geomstats._backend import _backend_config as _config
 ### IMPORTANT!
-# torch.set_default_tensor_type("torch.cuda.FloatTensor")
-torch.set_default_dtype(torch.float32)
+torch.set_default_tensor_type("torch.cuda.FloatTensor")
+# torch.set_default_dtype(torch.float32)
 _config.DEFAULT_DTYPE = torch.cuda.FloatTensor 
 
 def riemannian_gradient(f, R):

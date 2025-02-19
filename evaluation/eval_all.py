@@ -18,7 +18,7 @@ def run_commands(commands, block=4):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--meta_gen_dir', type=str, default='/gpfs/helios/home/tootsi/homing/ppflow/results-nanomed/docking/optimize_ppflow_233k2710')
+    parser.add_argument('--meta_gen_dir', type=str, default='/gpfs/helios/home/tootsi/homing/ppflow/results-nanomed/docking/optimize_ppflow_233k2810')
     parser.add_argument('--benchmark_dir', type=str, default='/gpfs/helios/home/tootsi/homing/ppflow/dataset/nanomed')
     parser.add_argument('--mode', type=str, choices=['basic_prop', 'bind_aff'], default='basic_prop')
     parser.add_argument('--parallel', action='store_true', default=False, help='Enable parallel execution')

@@ -10,5 +10,5 @@
 cd /gpfs/helios/home/tootsi/homing/ppflow
 conda init bash
 conda activate ppflow
-srun python codesign_ppf.py --tag 233k1110
+srun python codesign_ppf_nanomed.py --tag 233k20250217
 

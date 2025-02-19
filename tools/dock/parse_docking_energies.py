@@ -3,6 +3,7 @@ import glob
 from collections import defaultdict
 from Bio import PDB
 from Bio.PDB import PDBParser
+from Bio.SeqUtils.ProtParam import ProteinAnalysis
 import pandas as pd
 
 def get_peptide_sequence(pdb_file):
@@ -45,6 +46,27 @@ def parse_energy_file(file_path):
         print(f"Error parsing {file_path}: {e}")
         return None, None
 
+def calculate_peptide_properties(sequence):
+    """Calculate various peptide properties."""
+    if not sequence:
+        return {
+            'charge': None,
+            'is_lipophilic_c_terminus': None,
+            'isoelectric_point': None,
+            'hydrophobicity': None
+        }
+    analysis = ProteinAnalysis(sequence)
+    charge = analysis.charge_at_pH(7.4)  # Physiological pH
+    is_lipophilic_c_terminus = sequence[-1] in ['A', 'V', 'I', 'L', 'M', 'F', 'Y', 'W']  # Example lipophilic residues
+    isoelectric_point = analysis.isoelectric_point()
+    hydrophobicity = analysis.gravy()  # GRAVY (Grand Average of Hydropathicity) score
+    return {
+        'charge': charge,
+        'is_lipophilic_c_terminus': is_lipophilic_c_terminus,
+        'isoelectric_point': isoelectric_point,
+        'hydrophobicity': hydrophobicity
+    }
+
 def analyze_docking_results(folder_path):
     """Analyze all docking results in the given folder."""
     results = {}
@@ -53,27 +75,36 @@ def analyze_docking_results(folder_path):
     energy_files = glob.glob(pattern)
     
     for file_path in energy_files:
-        peptide_name = os.path.basename(file_path).split('_docked')[0]
-        pdb_file = os.path.join(folder_path, f"{peptide_name}_docked_from_optimize_ppflow_233k2810_1.pdb")
-        
-        sequence = get_peptide_sequence(pdb_file) if os.path.exists(pdb_file) else None
-        affinity, cluster_size = parse_energy_file(file_path)
-        
-        if affinity is not None:
-            results[peptide_name] = {
-                'affinity': affinity,
-                'cluster_size': cluster_size,
-                'sequence': sequence,
-                'cendr': is_cendr(sequence)
-            }
+        peptide_name = os.path.basename(file_path).split('_energy_record.txt')[0]
+        pdb_file = os.path.join(folder_path, f"{peptide_name}_1.pdb")
+        try:
+            sequence = get_peptide_sequence(pdb_file) if os.path.exists(pdb_file) else None
+            print(file_path, sequence)
+            affinity, cluster_size = parse_energy_file(file_path)
+            properties = calculate_peptide_properties(sequence)
+            
+            if affinity is not None:
+                results[peptide_name] = {
+                    'affinity': affinity,
+                    'cluster_size': cluster_size,
+                    'sequence': sequence,
+                    'cendr': is_cendr(sequence),
+                    'charge': properties['charge'],
+                    'is_lipophilic_c_terminus': properties['is_lipophilic_c_terminus'],
+                    'isoelectric_point': properties['isoelectric_point'],
+                        'hydrophobicity': properties['hydrophobicity']
+                    }
+        except Exception as e:
+            print(f"Error parsing {file_path}: {e}")
     
     return results
 
 def print_and_save_results(results, output_file):
-    """Print results and save to CSV file."""
+    """Print results and save to CSV file with metadata."""
     print("\nDocking Results:")
-    print(f"{'Peptide':<20} {'Sequence':<15} {'Affinity (kcal/mol)':<20} {'Cluster Size':<12} {'CendR':<8}")
-    print("-" * 75)
+    header = f"{'Peptide':<20} {'Sequence':<15} {'Affinity (kcal/mol)':<20} {'CendR':<8} {'Charge':<8} {'Lipophilic C-term':<18} {'pI':<6} {'Hydrophobicity (GRAVY)':<20}"
+    print(header)
+    print("-" * len(header))
     
     # Sort by affinity
     sorted_results = dict(sorted(results.items(), key=lambda x: x[1]['affinity']))
@@ -81,22 +112,46 @@ def print_and_save_results(results, output_file):
     # Prepare data for DataFrame
     df_data = []
     for peptide, data in sorted_results.items():
-        print(f"{peptide:<20} {data['sequence']:<15} {data['affinity']:<20.1f} {data['cluster_size']:<12} {data['cendr']:<8}")
+        print(f"{peptide:<20} {data['sequence']:<15} {data['affinity']:<20.1f} {data['cendr']:<8} {data['charge']:<8.2f} {data['is_lipophilic_c_terminus']:<18} {data['isoelectric_point']:<6.2f} {data['hydrophobicity']:<20.2f}")
         df_data.append({
             'Peptide': peptide,
             'Sequence': data['sequence'],
-            'Affinity': data['affinity'],
+            'Affinity (kcal/mol)': data['affinity'],
             'Cluster_Size': data['cluster_size'],
-            'CendR': data['cendr']
+            'CendR motif?': data['cendr'],
+            'Charge at pH 7.4': data['charge'],
+            'Lipophilic C-terminus': data['is_lipophilic_c_terminus'],
+            'Isoelectric_Point': data['isoelectric_point'],
+            'Hydrophobicity (GRAVY)': data['hydrophobicity']
         })
     
-    # Save to CSV
-    df = pd.DataFrame(df_data)
-    df.to_csv(output_file, index=False)
+    # Metadata descriptions
+    metadata = [
+        "# Docking Analysis Results",
+        "# Columns Description:",
+        "# Peptide: Identifier of the peptide.",
+        "# Sequence: Amino acid sequence.",
+        "# Affinity (kcal/mol): Docking binding affinity (more negative means stronger binding).",
+        "# Cluster_Size: Size of the cluster from docking results.",
+        "# CendR motif?: Boolean indicating if the peptide has a CendR motif (ends with R).",
+        "# Charge: Net charge of the peptide at physiological pH (7.4).",
+        "# Lipophilic C-terminus: Boolean indicating if the C-terminus is lipophilic.",
+        "# Isoelectric_Point: pH at which the peptide has no net charge.",
+        "# Hydrophobicity (GRAVY): Grand Average of Hydropathicity score."
+    ]
+    
+    # Save to CSV with metadata as comments
+    with open(output_file, 'w') as f:
+        for line in metadata:
+            f.write(line + '\n')
+        df = pd.DataFrame(df_data)
+        df.to_csv(f, index=False)
+    
     print(f"\nResults saved to: {output_file}")
 
 if __name__ == "__main__":
-    folder_path = "/gpfs/helios/home/tootsi/homing/ppflow/results-nanomed/docking/optimize_ppflow_233k2810/7jjc"
+    folder_path = "/gpfs/helios/home/tootsi/homing/ppflow/results-nanomed/docking/codesign_ppflow_233k250218-1M/1p32"
     output_file = os.path.join(folder_path, "docking_analysis.csv")
     results = analyze_docking_results(folder_path)
     print_and_save_results(results, output_file)
+    

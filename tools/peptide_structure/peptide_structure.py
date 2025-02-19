@@ -8,7 +8,7 @@ from pyrosetta.rosetta.core.scoring import get_score_function
 pyrosetta.init()
 
 # Your peptide sequence
-sequence = "GRPARPAR"
+sequence = "CGNKRTRGC"
 
 pose = pose_from_sequence(sequence, "fa_standard")  
 
@@ -21,7 +21,7 @@ min_mover.max_iter(100)  # Maximum number of iterations
 min_mover.apply(pose)
 
 # Output PDB file path
-output_pdb = "RPARPAR.pdb"
+output_pdb = "lyp1.pdb"
 
 # Dump the pose to a PDB file
 pose.dump_pdb(output_pdb)

@@ -181,7 +181,7 @@ def main():
             batch = recursive_to(batch, args.device)
 
             # Perform optimization
-            interm_t = 0.5
+            interm_t = 0.2
             traj_batch = model.optimize(
                 batch, 
                 interm_t=interm_t,

@@ -10,7 +10,7 @@
 
 conda activate ppflow
 python eval_all.py \
-    --meta_gen_dir ../results-nanomed/ppflow/optimize_nanomed_ppflow_233k2710 \
+    --meta_gen_dir ../results-nanomed/ppflow/codesign_nanomed_ppflow_233k20250217 \
     --mode basic_prop \
     --parallel \
     --block 64

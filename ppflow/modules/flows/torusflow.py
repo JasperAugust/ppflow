@@ -81,7 +81,8 @@ class VectorFieldNet(nn.Module):
         """
         N, L = mask_res.size()
 
-        # s_t = s_t.clamp(min=0, max=19)  # TODO: clamping is good but ugly.
+        s_t = s_t.clamp(min=0, max=19)  # TODO: clamping is good but ugly.
+        
         res_feat = self.res_feat_mixer(torch.cat([res_feat, self.current_sequence_embedding(s_t)], dim=-1)) # [Important] Incorporate sequence at the current step.
         res_feat = self.encoder(R_t, X_t, res_feat, pair_feat, mask_res)
 
@@ -266,15 +267,14 @@ class TorusFlow(nn.Module):
             t_tensor = torch.full([N, ], fill_value=(t+1)/num_steps, dtype=torch.float32, device=self._dummy.device)
 
             X_t = manifold_to_euclid(r_t, p_t, d_t, X_ctx, mask_gen_pos)
+            
+            _, R_t_global = global_frame(X_t, mask_gen_pos)
         
             X_t, R_t = X_t[:, :, BBHeavyAtom.CA], construct_3d_basis(X_t[:, :, BBHeavyAtom.CA],
                                                                      X_t[:, :, BBHeavyAtom.C],
                                                                      X_t[:, :, BBHeavyAtom.N],)
-
-            vp_t, vr_t, vd_t, vc_t = self.eps_net(
-                    d_t, s_t, X_t, R_t, res_feat, pair_feat, t_tensor, 
-                    mask_gen_d, mask_gen_aa, mask_gen_pos, mask_res
-                )   # (N, L, 3), (N, L, 3, 3), (N, L, 3)
+            
+            vp_t, vr_t, vd_t, vc_t = self.eps_net(d_t, s_t, X_t, R_t, R_t_global, res_feat, pair_feat, t_tensor, mask_gen_d, mask_gen_aa, mask_gen_pos, mask_res)   # (N, L, 3), (N, L, 3, 3), (N, L, 3)
 
             r_next = self.rot_sampler.inference(r_t, vr_t, dt)
             p_next = self.tra_sampler.inference(p_t, vp_t, dt)
@@ -316,8 +316,10 @@ class TorusFlow(nn.Module):
             uc_t, s_init, c_init = self.seq_type_sampler.sample_field(s, t0, mask_gen_aa)
         else:
             s_init = s.clone()
-            uc_t = torch.zeros_like(s_t.unsqueeze(-1)).float().repeat(1, 1, self.num_class)
-        
+            uc_t = torch.zeros_like(s_init.unsqueeze(-1)).float().repeat(1, 1, self.num_class)
+            c_init = torch.zeros_like(uc_t)
+        s_init = s_init.long()
+
         
         traj = {int(num_steps * start_t): (r_init, p_init, d_init, s_init, c_init)}
 
@@ -332,20 +334,20 @@ class TorusFlow(nn.Module):
         for t in pbar(t_range):
             r_t, p_t, d_t, s_t, c_t = traj[t]
             
+            s_t = s_t.long()
+
             dt = torch.full([N, ], fill_value=1.0/num_steps, dtype=torch.float32, device=self._dummy.device)
             t_tensor = torch.full([N, ], fill_value=t/num_steps, dtype=torch.float32, device=self._dummy.device)
 
             X_t = manifold_to_euclid(r_t, p_t, d_t, X_ctx, mask_gen_pos)
-        
+            _, R_t_global = global_frame(X_t, mask_gen_pos)
+
             X_t, R_t = X_t[:, :, BBHeavyAtom.CA], construct_3d_basis(X_t[:, :, BBHeavyAtom.CA],
                                                                      X_t[:, :, BBHeavyAtom.C],
                                                                      X_t[:, :, BBHeavyAtom.N],)
                                                                      
-
-            vp_t, vr_t, vd_t, vc_t = self.eps_net(
-                    d_t, s_t, X_t, R_t, res_feat, pair_feat, t_tensor, 
-                    mask_gen_d, mask_gen_aa, mask_gen_pos, mask_res
-                )   # (N, L, 3), (N, L, 3, 3), (N, L, 3)
+            vp_t, vr_t, vd_t, vc_t = self.eps_net(d_t, s_t, X_t, R_t, R_t_global, res_feat, pair_feat, t_tensor, mask_gen_d, mask_gen_aa, mask_gen_pos, mask_res)
+              # (N, L, 3), (N, L, 3, 3), (N, L, 3)
 
             r_next = self.rot_sampler.inference(r_t, vr_t, dt)
             p_next = self.tra_sampler.inference(p_t, vp_t, dt)
@@ -357,7 +359,7 @@ class TorusFlow(nn.Module):
             if not sample_sequence:
                 s_next = s_t
 
-            traj[t+1] = (r_next, p_next, regularize(d_next), s_next, c_next)
+            traj[t+1] = (r_next, p_next, regularize(d_next), s_next.long(), c_next)
             traj[t] = tuple(x.cpu() for x in traj[t])    # Move previous states to cpu memory.
 
         return traj

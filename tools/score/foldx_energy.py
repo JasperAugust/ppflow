@@ -8,7 +8,7 @@ class FoldXGibbsEnergy():
 
     def __init__(
         self,
-        foldx_path = '../bin/FoldX/foldx'
+        foldx_path = '../bin/FoldX/foldx_20251231'
     ):
         super().__init__()
         self.foldx_path = os.path.abspath(foldx_path)

@@ -1,4 +1,83 @@
 # PPFlow: Target-Aware Peptide Design with Torsional Flow Matching
+
+# Quick abstract and explanation by Jasper
+
+- PPFlow is a novel peptide design method that uses a graph-based neural network to generate peptides that bind to a target protein.
+
+Based on the provided code snippets and search results, I can create a high-level diagram and explanation of the PPFlow model architecture. Here's a detailed breakdown:
+
+```
+[Input Data]
+    |
+    v
+[Encoding]
+    |
+    +--> [ResidueEmbedding] --> [res_feat]
+    |
+    +--> [ResiduePairEncoder] --> [pair_feat]
+    |
+    +--> [Construct 3D Basis] --> [R, p]
+    |
+    v
+[TorusFlow]
+    |
+    +--> [Flow Operations]
+    |    |
+    |    +--> [SO3FlowSampler] (for rotations)
+    |    |
+    |    +--> [R3FlowSampler] (for translations)
+    |    |
+    |    +--> [TorusFlowSampler] (for dihedral angles)
+    |    |
+    |    +--> [TypeFlowSampler] (for sequences)
+    |
+    +--> [Loss Calculation]
+    |
+    v
+[Output]
+    |
+    +--> [Sampled Structures/Sequences]
+    |
+    +--> [Log Probabilities]
+```
+
+Explanation of the architecture:
+
+1. Input Data:
+   The model takes various inputs representing protein structures and sequences:
+   - Amino acid sequences (s_1)
+   - Atom positions (X_1)
+   - Rotation matrices (R_1)
+   - Translations (p_1)
+   - Dihedral angles (d_1)
+   - Various masks for generation and residues
+
+2. Encoding:
+   - ResidueEmbedding: Encodes residue-level features, including amino acid identity, atom positions, and dihedral angles.
+   - ResiduePairEncoder: Encodes pairwise residue features, capturing relationships between different parts of the protein.
+   - 3D Basis Construction: Creates rotation matrices and translations to represent the protein's 3D structure.
+
+3. TorusFlow:
+   This is the core of the model, implementing normalizing flows adapted for protein structures:
+   
+   - SO3FlowSampler: Handles 3D rotations using the SO(3) group.
+   - R3FlowSampler: Manages 3D translations in R^3 space.
+   - TorusFlowSampler: Deals with dihedral angles in torus space.
+   - TypeFlowSampler: Handles discrete sequence data using categorical distributions.
+
+   Each sampler is designed to respect the geometry and constraints of its respective space, allowing the model to effectively capture the complex structure of proteins while maintaining physical and chemical validity.
+
+4. Loss Calculation:
+   The model computes losses for rotations, positions, dihedral angles, and sequences, ensuring that all aspects of the protein structure and sequence are accurately modeled.
+
+5. Output:
+   - Sampled Structures/Sequences: The model can generate new protein structures or complete partial structures.
+   - Log Probabilities: Provides probabilistic information about the generated structures or sequences.
+
+This architecture allows PPFlow to model the complex relationships between protein sequence and structure, enabling tasks such as protein structure prediction, generation, and completion.
+
+
+
 ## Installation
 
 #### Create the conda environment and activate it.
@@ -147,7 +226,7 @@ where foldx is the software. `./tools/score/foldx_energy.py` gives an example of
 ```
 - bin
     - ADFRsuite_x86_64Linux_1.0
-        - Toos
+        - Tools
           CCSBpckgs.tar.gz
           ...
       ADFRsuite_Linux-x86_64_1.0_install.run
@@ -155,9 +234,23 @@ where foldx is the software. `./tools/score/foldx_energy.py` gives an example of
 ```
 Remember to add it to your env-path as 
 ```
-export PATH={Absolute-path-of-ppfolw}/bin/ADFRsuite_x86_64Linux_1.0/bin:$PATH
+export PATH={Absolute-path-of-ppflow}/bin/ADFRsuite_x86_64Linux_1.0/bin:$PATH
+e.g. note(Jasper):
+export PATH=/gpfs/helios/home/tootsi/homing/ppflow/bin/ADFRsuite_x86_64Linux_1.0/bin:$PATH
 ```
 `./tools/dock/adcpdock.py` gives an example of our python interface for ADCPDocking.
+
+
+Jaspers code
+```
+conda activate ppflow
+PYTHONPATH=$PYTHONPATH:. python3 tools/dock/adcpdock.py
+
+or 
+export PYTHONPATH=$PYTHONPATH:/gpfs/helios/home/tootsi/homing/ppflow
+python3 tools/dock/adcpdock.py
+
+```
 
 #### TMscore: The available TMscore evaluation software is provided in `./bin`, as 
 ```
@@ -169,6 +262,12 @@ export PATH={Absolute-path-of-ppfolw}/bin/ADFRsuite_x86_64Linux_1.0/bin:$PATH
 
 #### PLIP for interaction analysis
 If you want to analyze the interaction type of the generated protein-peptide, you can use PLIP: https://github.com/pharmai/plip.
+```
+conda install openbabel -c conda-forge
+
+
+```
+
 First, clone it to `./bin`
 ```
 cd ./bin
@@ -178,7 +277,14 @@ python setup.py install
 alias plip='python {Absolute-path-of-ppfolw}/bin/plip/plip/plipcmd.py' 
 ```
 
+```
+alias plip='python3
+
+alias plip='python3 /gpfs/helios/home/tootsi/homing/ppflow/bin/plip/plip/plipcmd.py'
+```
+
 `./tools/interaction/interaction_analysis.py` gives an example of our Python interface for PLIP interaction analysis.
+
 
 
 

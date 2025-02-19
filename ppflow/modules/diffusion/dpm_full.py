@@ -301,8 +301,8 @@ class FullDPM(nn.Module):
             beta = self.trans_pos.var_sched.betas[t].expand([N, ])
             t_tensor = torch.full([N, ], fill_value=t, dtype=torch.long, device=self._dummy.device)
 
-            v_next, R_next, eps_p, c_denoised = self.eps_net(
-                v_t, p_t, s_t, res_feat, pair_feat, beta, mask_gen_pos, mask_res
+            vp_t, vr_t, vd_t, vc_t = self.eps_net(
+                t, s_t, r_t, p_t, d_t, X_ctx, res_feat, pair_feat, mask_gen_d, mask_res
             )   # (N, L, 3), (N, L, 3, 3), (N, L, 3)
 
             v_next = self.trans_rot.denoise(v_t, v_next, mask_gen_pos, t_tensor)

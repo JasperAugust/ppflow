@@ -25,7 +25,7 @@ def parse_results(results_dir):
     return df
 
 if __name__ == '__main__':
-    results_dir = '../results-jasper/ppflow/optimize_ppflow_233k2410/'
+    results_dir = '../results-nanomed/ppflow/codesign_nanomed_ppflow_233k20250217/'
     df = parse_results(results_dir)
     print(df)
-    df.to_csv('../results-jasper/ppflow/optimize_ppflow_233k2410/parsed_results_optimize_ppflow_233k2410.csv')
+    df.to_csv('../results-nanomed/ppflow/codesign_nanomed_ppflow_233k20250217/parsed_results_codesign_nanomed_ppflow_233k20250217.csv')
