@@ -104,7 +104,7 @@ def parse_pdb_file(pdb_file):
            seq += three_to_one.get(res.upper(), "X")
 
 def __main__():
-    parse_pdb_file("peptides.fasta")
+    parse_pdb_file("peptides_20250303.fasta")
 
 if __name__ == "__main__":
     __main__()

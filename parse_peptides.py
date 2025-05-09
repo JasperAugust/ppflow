@@ -3,8 +3,8 @@ import os
 import glob
 
 # folder containing .pdb files
-pdb_folder = "/gpfs/helios/home/tootsi/homing/ppflow/results-nanomed/ppflow/codesign_nanomed_ppflow_233k20250210/0002_1p32_2025_02_10__21_48_13"
-output_fasta = "peptides.fasta"
+pdb_folder = "/gpfs/helios/home/tootsi/homing/ppflow/results-nanomed/ppflow/codesign_nanomed_ppflow_233k20250217/0002_1p32_2025_02_17__12_07_21"
+output_fasta = "peptides20250304.fasta"
 
 # mapping from three-letter to one-letter amino acid codes
 three_to_one = {
@@ -81,7 +81,7 @@ def parse_pdb_file(pdb_file):
     return chain_oneletter
 
 def main():
-    pdb_files = glob.glob(os.path.join(pdb_folder, "*[pP][dD][bB]"))
+    pdb_files = [f for f in glob.glob(os.path.join(pdb_folder, "*[pP][dD][bB]")) if not f.endswith("_bb3.pdb")]
     if not pdb_files:
         print("No PDB files found in folder:", pdb_folder)
         return

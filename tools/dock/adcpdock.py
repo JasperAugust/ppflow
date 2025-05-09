@@ -512,7 +512,8 @@ if __name__ == '__main__':
     # optimized_peptides = ['0027', '0021', '0033', '0016', '0043', '0020', '0018']
     # optimized_peptides = ['0007', '0045','0046','reference']
     # optimized_peptides = ['reference']
-    optimized_peptides = [f'{i:04d}' for i in range(100)] + ['reference']
+    # optimized_peptides = [f'{i:04d}' for i in range(100)] + ['reference']
+    optimized_peptides = ['reference']
     
     protein_file = os.path.join(current_dir, 'dataset', 'nanomed', protein_name, 'receptor.pdb')
     
