@@ -38,3 +38,4 @@ __pycache__/
 dataset/ligands133/.DS_Store
 results-jasper/ppflow/optimize_ppflow_233k2410/0116_2xrw_2024_10_24__17_03_31/metrics_meta.npy
 dataset/nanomed/processed/cluster_tmp/10376076891763675857/clu_rep_h
+foldx_20251231
